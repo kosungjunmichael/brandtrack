@@ -1,3 +1,7 @@
 credentials.json
 secrets.toml
+.streamlit/
 .git/
+__pycache__/
+*.pyc
+.env

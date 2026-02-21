@@ -1,0 +1,13 @@
+streamlit
+pandas
+pytrends
+gspread
+st-gsheets-connection
+playwright
+beautifulsoup4
+requests
+plotly
+google-auth
+google-auth-oauthlib
+oauth2client
+numpy
