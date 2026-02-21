@@ -1,5 +1,6 @@
 credentials.json
 secrets.toml
+claude.md
 .streamlit/
 .git/
 __pycache__/
