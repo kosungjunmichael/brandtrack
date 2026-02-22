@@ -22,7 +22,11 @@ SCOPES = [
 ]
 
 # Sheet names
-SHEET_TRENDS = "trends_data"
+SHEET_TRENDS = "trends_data"  # Legacy, kept for compatibility
+SHEET_BRAND_TRENDS = "brand_trends"
+SHEET_COLOR_TRENDS = "color_trends"
+SHEET_STYLE_TRENDS = "style_trends"
+SHEET_TEXTURE_TRENDS = "texture_trends"
 SHEET_PRICES = "price_data"
 SHEET_PINTEREST = "pinterest_data"
 SHEET_ERRORS = "error_log"
@@ -93,7 +97,7 @@ def append_data(sheet_name, data_row, headers=None):
 
 
 def append_dataframe(sheet_name, df, headers=None):
-    """Append a DataFrame to a sheet."""
+    """Append a DataFrame to a sheet using batch update for speed."""
     try:
         spreadsheet = get_spreadsheet()
         worksheet = ensure_worksheet_exists(spreadsheet, sheet_name, headers or list(df.columns))
@@ -102,16 +106,44 @@ def append_dataframe(sheet_name, df, headers=None):
         existing = worksheet.get_all_values()
         if len(existing) <= 1:
             # Sheet is empty or only has headers, add headers if needed
-            if len(existing) == 0 and headers:
+            if len(existing) == 0:
                 worksheet.append_row(headers or list(df.columns))
+                existing = [[]]  # Update to reflect header was added
 
-        # Append data rows
+        # Convert DataFrame to list of lists, handling Timestamps and NaN
+        rows = []
         for _, row in df.iterrows():
-            worksheet.append_row(row.tolist())
+            row_values = []
+            for val in row.tolist():
+                if hasattr(val, 'isoformat'):  # Handle Timestamp/datetime objects
+                    row_values.append(val.isoformat())
+                elif pd.isna(val):  # Handle NaN/NaT
+                    row_values.append('')
+                else:
+                    row_values.append(val)
+            rows.append(row_values)
+
+        # Batch append all rows at once (much faster than row-by-row)
+        if rows:
+            worksheet.append_rows(rows, value_input_option='RAW')
 
         return True
     except Exception as e:
         log_error(f"Error appending DataFrame to {sheet_name}: {str(e)}")
+        return False
+
+
+def clear_sheet(sheet_name):
+    """Clear all data from a sheet."""
+    try:
+        spreadsheet = get_spreadsheet()
+        worksheet = spreadsheet.worksheet(sheet_name)
+        worksheet.clear()
+        return True
+    except gspread.WorksheetNotFound:
+        return True  # Sheet doesn't exist, nothing to clear
+    except Exception as e:
+        log_error(f"Error clearing {sheet_name}: {str(e)}")
         return False
 
 
@@ -124,7 +156,15 @@ def clear_and_write(sheet_name, df):
         worksheet.append_row(list(df.columns))
 
         for _, row in df.iterrows():
-            worksheet.append_row(row.tolist())
+            row_values = []
+            for val in row.tolist():
+                if hasattr(val, 'isoformat'):  # Handle Timestamp/datetime objects
+                    row_values.append(val.isoformat())
+                elif pd.isna(val):  # Handle NaN/NaT
+                    row_values.append('')
+                else:
+                    row_values.append(val)
+            worksheet.append_row(row_values)
 
         return True
     except Exception as e:

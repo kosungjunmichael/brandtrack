@@ -89,7 +89,11 @@ class GoogleTrendsScraper:
             if 'isPartial' in data.columns:
                 data = data.drop(columns=['isPartial'])
 
-            return data.reset_index()
+            # Convert from wide to long format for better storage
+            data = data.reset_index()
+            data = data.melt(id_vars=['date'], var_name='keyword', value_name='interest')
+
+            return data
         except Exception as e:
             print(f"Error fetching trends for {keywords}: {e}")
             if gs:
@@ -366,32 +370,36 @@ def run_all_scrapers():
     print("\n[1/1] Fetching Google Trends data...")
     trends_scraper = GoogleTrendsScraper(keywords)
 
+    # Clear existing trends data before fresh scrape
+    if gs:
+        print("  Clearing old trends data...")
+        gs.clear_sheet(gs.SHEET_BRAND_TRENDS)
+        gs.clear_sheet(gs.SHEET_COLOR_TRENDS)
+        gs.clear_sheet(gs.SHEET_STYLE_TRENDS)
+        gs.clear_sheet(gs.SHEET_TEXTURE_TRENDS)
+
     brand_trends = trends_scraper.fetch_all_brand_trends()
     if not brand_trends.empty and gs:
-        brand_trends['category'] = 'brand'
         brand_trends['scraped_at'] = datetime.now().isoformat()
-        gs.append_dataframe(gs.SHEET_TRENDS, brand_trends)
+        gs.append_dataframe(gs.SHEET_BRAND_TRENDS, brand_trends)
         print(f"  - Saved {len(brand_trends)} brand trend records")
 
     color_trends = trends_scraper.fetch_color_trends()
     if not color_trends.empty and gs:
-        color_trends['category'] = 'color'
         color_trends['scraped_at'] = datetime.now().isoformat()
-        gs.append_dataframe(gs.SHEET_TRENDS, color_trends)
+        gs.append_dataframe(gs.SHEET_COLOR_TRENDS, color_trends)
         print(f"  - Saved {len(color_trends)} color trend records")
 
     style_trends = trends_scraper.fetch_style_trends()
     if not style_trends.empty and gs:
-        style_trends['category'] = 'style'
         style_trends['scraped_at'] = datetime.now().isoformat()
-        gs.append_dataframe(gs.SHEET_TRENDS, style_trends)
+        gs.append_dataframe(gs.SHEET_STYLE_TRENDS, style_trends)
         print(f"  - Saved {len(style_trends)} style trend records")
 
     texture_trends = trends_scraper.fetch_texture_trends()
     if not texture_trends.empty and gs:
-        texture_trends['category'] = 'texture'
         texture_trends['scraped_at'] = datetime.now().isoformat()
-        gs.append_dataframe(gs.SHEET_TRENDS, texture_trends)
+        gs.append_dataframe(gs.SHEET_TEXTURE_TRENDS, texture_trends)
         print(f"  - Saved {len(texture_trends)} texture trend records")
 
     # eBay Prices - TEMPORARILY DISABLED
