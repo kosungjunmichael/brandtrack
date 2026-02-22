@@ -13,10 +13,34 @@ A lightweight, automated monitoring system for vintage luxury bags. It tracks se
 ## 📊 Data Pipeline
 1. **Google Trends (via PyTrends):** - Tracks keyword interest for specific models.
    - *Constraint:* Batch keywords in groups of 5 to avoid 429 rate limits.
+   - *Keywords:* Sourced from `keywords` sheet in Google Sheets (not hardcoded).
 2. **Pinterest Trends:** - Scrapes visual trend data using Playwright.
    - *Constraint:* Use randomized delays to avoid bot detection.
 3. **eBay Market Data:** - Scrapes "Sold" listings for historical price averages.
    - *Logic:* Filter for `LH_Sold=1` in URL.
+
+## 📋 Keywords Management
+Keywords are managed in Google Sheets and cached locally as JSON for offline scraping.
+
+### Keywords Sheet Structure
+The `keywords` sheet in Google Sheets defines all search terms:
+| Column | Category | Example Values |
+|--------|----------|----------------|
+| A | Textures | leather bag, quilted bag, woven bag |
+| B | Colors | black bag, green bag, beige bag |
+| C | Styles & Trends | shoulder bag, tote bag, crossbody bag |
+| D | Brands | Hermès bag, Chanel bag, Gucci bag |
+
+### Local Cache (keywords.json)
+- The scraper reads from `keywords.json` (local cache) instead of calling Google Sheets API
+- Run `python gsheets_sync.py` to sync keywords from Google Sheets to local JSON
+- `keywords.json` is gitignored (not committed to repo)
+- If `keywords.json` doesn't exist, scraper uses hardcoded defaults
+
+### Workflow
+1. Update keywords in Google Sheets
+2. Run `python gsheets_sync.py` to sync to local `keywords.json`
+3. Run `python scraper_engine.py` to scrape using cached keywords
 
 ## 📁 Project Structure
 - `app.py`: Streamlit frontend and visualization logic.
@@ -33,5 +57,6 @@ A lightweight, automated monitoring system for vintage luxury bags. It tracks se
 
 ## 🚀 Commands
 - Run Dashboard: `streamlit run app.py`
-- Test Scrapers: `python scraper_engine.py`
+- Sync Keywords: `python gsheets_sync.py` (pulls keywords from Google Sheets to local JSON)
+- Run Scrapers: `python scraper_engine.py`
 - Install Deps: `pip install -r requirements.txt`

@@ -21,90 +21,13 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Custom CSS for styling
-st.markdown("""
-<style>
-    .main-header {
-        font-size: 2rem;
-        font-weight: 700;
-        color: #1a1a1a;
-        margin-bottom: 0;
-    }
-    .sub-header {
-        font-size: 0.9rem;
-        color: #666;
-        margin-top: 0;
-    }
-    .metric-card {
-        background-color: #f8f9fa;
-        padding: 1rem;
-        border-radius: 8px;
-        border: 1px solid #e9ecef;
-    }
-    .metric-value {
-        font-size: 1.8rem;
-        font-weight: 700;
-        color: #1a1a1a;
-    }
-    .metric-label {
-        font-size: 0.8rem;
-        color: #666;
-        text-transform: uppercase;
-    }
-    .metric-change-positive {
-        color: #10b981;
-        font-size: 0.85rem;
-    }
-    .metric-change-negative {
-        color: #ef4444;
-        font-size: 0.85rem;
-    }
-    .section-title {
-        font-size: 1.1rem;
-        font-weight: 600;
-        color: #1a1a1a;
-        margin-bottom: 0.5rem;
-    }
-    .section-subtitle {
-        font-size: 0.8rem;
-        color: #888;
-        margin-bottom: 1rem;
-    }
-    .insight-card {
-        background-color: #fafafa;
-        padding: 0.75rem;
-        border-radius: 6px;
-        margin-bottom: 0.5rem;
-        border-left: 3px solid #10b981;
-    }
-    .insight-title {
-        font-weight: 600;
-        color: #1a1a1a;
-        font-size: 0.9rem;
-    }
-    .insight-text {
-        color: #666;
-        font-size: 0.8rem;
-    }
-    .trending-item {
-        display: flex;
-        align-items: center;
-        padding: 0.5rem 0;
-        border-bottom: 1px solid #f0f0f0;
-    }
-    .trending-rank {
-        font-size: 1rem;
-        font-weight: 600;
-        color: #888;
-        width: 30px;
-    }
-    .stMetric > div {
-        background-color: #f8f9fa;
-        padding: 1rem;
-        border-radius: 8px;
-    }
-</style>
-""", unsafe_allow_html=True)
+# Load custom CSS from external file
+def load_css(file_path):
+    """Load CSS from an external file."""
+    with open(file_path) as f:
+        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+
+load_css("styles.css")
 
 
 @st.cache_data(ttl=300)

@@ -18,20 +18,44 @@ except ImportError:
     gs = None
 
 
-# Configuration
-LUXURY_BRANDS = ["Hermès bag", "Chanel bag", "Louis Vuitton bag", "Gucci bag", "Prada bag", "Bottega Veneta bag"]
-BAG_STYLES = ["shoulder bag", "tote bag", "crossbody bag", "clutch bag", "bucket bag", "satchel bag"]
-COLORS = ["black bag", "brown bag", "beige bag", "white bag", "green bag", "red bag", "blue bag", "pink bag"]
-TEXTURES = ["leather bag", "quilted bag", "canvas bag", "suede bag", "patent leather bag", "woven bag"]
+# Default fallback keywords (used if Google Sheets is unavailable)
+DEFAULT_BRANDS = ["Hermès bag", "Chanel bag", "Louis Vuitton bag", "Gucci bag", "Prada bag", "Bottega Veneta bag"]
+DEFAULT_STYLES = ["shoulder bag", "tote bag", "crossbody bag", "clutch bag", "bucket bag", "satchel bag"]
+DEFAULT_COLORS = ["black bag", "brown bag", "beige bag", "white bag", "green bag", "red bag", "blue bag", "pink bag"]
+DEFAULT_TEXTURES = ["leather bag", "quilted bag", "canvas bag", "suede bag", "patent leather bag", "woven bag"]
 
-# Trending combinations to track
-TRENDING_COMBINATIONS = [
-    "Bottega Veneta Intrecciato",
-    "Green Leather Shoulder Bag",
-    "Woven Canvas Tote",
-    "Chanel Quilted bag",
-    "Beige Suede Crossbody"
-]
+
+def load_keywords():
+    """
+    Load keywords from local JSON file (keywords.json).
+    Falls back to defaults if file doesn't exist.
+
+    To update keywords.json, run: python gsheets_sync.py
+    """
+    if gs:
+        try:
+            keywords = gs.load_keywords_from_json()
+            if keywords:
+                synced_at = keywords.get('synced_at', 'unknown')
+                print(f"  Loaded keywords from local cache (synced: {synced_at})")
+                return {
+                    'brands': keywords['brands'] if keywords['brands'] else DEFAULT_BRANDS,
+                    'styles': keywords['styles'] if keywords['styles'] else DEFAULT_STYLES,
+                    'colors': keywords['colors'] if keywords['colors'] else DEFAULT_COLORS,
+                    'textures': keywords['textures'] if keywords['textures'] else DEFAULT_TEXTURES,
+                }
+            else:
+                print("  No local keywords.json found, using defaults")
+                print("  Tip: Run 'python gsheets_sync.py' to sync keywords from Google Sheets")
+        except Exception as e:
+            print(f"Warning: Could not load keywords: {e}")
+
+    return {
+        'brands': DEFAULT_BRANDS,
+        'styles': DEFAULT_STYLES,
+        'colors': DEFAULT_COLORS,
+        'textures': DEFAULT_TEXTURES,
+    }
 
 
 def polite_delay():
@@ -48,8 +72,9 @@ def batch_keywords(keywords, batch_size=5):
 class GoogleTrendsScraper:
     """Scraper for Google Trends data using PyTrends."""
 
-    def __init__(self):
+    def __init__(self, keywords=None):
         self.pytrends = TrendReq(hl='en-US', tz=360)
+        self.keywords = keywords or load_keywords()
 
     def fetch_interest_over_time(self, keywords, timeframe='today 3-m'):
         """Fetch interest over time for a batch of keywords."""
@@ -74,8 +99,13 @@ class GoogleTrendsScraper:
     def fetch_all_brand_trends(self):
         """Fetch trends for all luxury brands."""
         all_data = []
+        brands = self.keywords['brands']
 
-        for batch in batch_keywords(LUXURY_BRANDS, 5):
+        if not brands:
+            print("  No brand keywords found, skipping...")
+            return pd.DataFrame()
+
+        for batch in batch_keywords(brands, 5):
             print(f"Fetching trends for: {batch}")
             data = self.fetch_interest_over_time(batch)
             if not data.empty:
@@ -89,8 +119,13 @@ class GoogleTrendsScraper:
     def fetch_color_trends(self):
         """Fetch trends for bag colors."""
         all_data = []
+        colors = self.keywords['colors']
 
-        for batch in batch_keywords(COLORS, 5):
+        if not colors:
+            print("  No color keywords found, skipping...")
+            return pd.DataFrame()
+
+        for batch in batch_keywords(colors, 5):
             print(f"Fetching color trends for: {batch}")
             data = self.fetch_interest_over_time(batch)
             if not data.empty:
@@ -104,8 +139,13 @@ class GoogleTrendsScraper:
     def fetch_style_trends(self):
         """Fetch trends for bag styles."""
         all_data = []
+        styles = self.keywords['styles']
 
-        for batch in batch_keywords(BAG_STYLES, 5):
+        if not styles:
+            print("  No style keywords found, skipping...")
+            return pd.DataFrame()
+
+        for batch in batch_keywords(styles, 5):
             print(f"Fetching style trends for: {batch}")
             data = self.fetch_interest_over_time(batch)
             if not data.empty:
@@ -119,24 +159,14 @@ class GoogleTrendsScraper:
     def fetch_texture_trends(self):
         """Fetch trends for bag textures/materials."""
         all_data = []
+        textures = self.keywords['textures']
 
-        for batch in batch_keywords(TEXTURES, 5):
+        if not textures:
+            print("  No texture keywords found, skipping...")
+            return pd.DataFrame()
+
+        for batch in batch_keywords(textures, 5):
             print(f"Fetching texture trends for: {batch}")
-            data = self.fetch_interest_over_time(batch)
-            if not data.empty:
-                all_data.append(data)
-            polite_delay()
-
-        if all_data:
-            return pd.concat(all_data, axis=0).drop_duplicates()
-        return pd.DataFrame()
-
-    def fetch_trending_combinations(self):
-        """Fetch trends for specific trending search combinations."""
-        all_data = []
-
-        for batch in batch_keywords(TRENDING_COMBINATIONS, 5):
-            print(f"Fetching combination trends for: {batch}")
             data = self.fetch_interest_over_time(batch)
             if not data.empty:
                 all_data.append(data)
@@ -154,6 +184,9 @@ class EbayScraper:
     HEADERS = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
     }
+
+    def __init__(self, keywords=None):
+        self.keywords = keywords or load_keywords()
 
     def search_sold_listings(self, query, min_price=None, max_price=None):
         """Search for sold listings on eBay."""
@@ -234,17 +267,20 @@ class EbayScraper:
     def fetch_brand_prices(self):
         """Fetch sold prices for all luxury brands."""
         all_listings = []
+        brands = self.keywords['brands']
 
-        brand_queries = [
-            "vintage Hermès bag",
-            "vintage Chanel bag",
-            "vintage Louis Vuitton bag",
-            "vintage Gucci bag",
-            "vintage Prada bag",
-            "vintage Bottega Veneta bag"
-        ]
+        if not brands:
+            print("  No brand keywords found, skipping...")
+            return pd.DataFrame()
 
-        for query in brand_queries:
+        # Convert brand keywords to vintage search queries
+        for brand in brands:
+            # Add "vintage" prefix if not already present
+            if brand.lower().startswith("vintage"):
+                query = brand
+            else:
+                query = f"vintage {brand}"
+
             print(f"Fetching eBay prices for: {query}")
             listings = self.search_sold_listings(query, min_price=100)
             all_listings.extend(listings)
@@ -318,9 +354,17 @@ def run_all_scrapers():
     print(f"Timestamp: {datetime.now().isoformat()}")
     print("=" * 50)
 
+    # Load keywords from local JSON cache
+    print("\n[0/1] Loading keywords...")
+    keywords = load_keywords()
+    print(f"  - Brands: {len(keywords['brands'])} keywords")
+    print(f"  - Colors: {len(keywords['colors'])} keywords")
+    print(f"  - Styles: {len(keywords['styles'])} keywords")
+    print(f"  - Textures: {len(keywords['textures'])} keywords")
+
     # Google Trends
-    print("\n[1/3] Fetching Google Trends data...")
-    trends_scraper = GoogleTrendsScraper()
+    print("\n[1/1] Fetching Google Trends data...")
+    trends_scraper = GoogleTrendsScraper(keywords)
 
     brand_trends = trends_scraper.fetch_all_brand_trends()
     if not brand_trends.empty and gs:
@@ -350,17 +394,16 @@ def run_all_scrapers():
         gs.append_dataframe(gs.SHEET_TRENDS, texture_trends)
         print(f"  - Saved {len(texture_trends)} texture trend records")
 
-    # eBay Prices
-    print("\n[2/3] Fetching eBay price data...")
-    ebay_scraper = EbayScraper()
-    price_data = ebay_scraper.fetch_brand_prices()
+    # eBay Prices - TEMPORARILY DISABLED
+    # print("\n[2/3] Fetching eBay price data...")
+    # ebay_scraper = EbayScraper(keywords)
+    # price_data = ebay_scraper.fetch_brand_prices()
+    # if not price_data.empty and gs:
+    #     gs.append_dataframe(gs.SHEET_PRICES, price_data)
+    #     print(f"  - Saved {len(price_data)} price records")
 
-    if not price_data.empty and gs:
-        gs.append_dataframe(gs.SHEET_PRICES, price_data)
-        print(f"  - Saved {len(price_data)} price records")
-
-    # Pinterest (async)
-    print("\n[3/3] Pinterest scraping skipped (requires async context)")
+    # Pinterest - TEMPORARILY DISABLED
+    # print("\n[3/3] Pinterest scraping...")
 
     print("\n" + "=" * 50)
     print("Scraper engine complete!")

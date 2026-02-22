@@ -6,8 +6,14 @@ Handles reading and writing data to Google Sheets using service account credenti
 import streamlit as st
 import pandas as pd
 import gspread
+import json
+import os
 from google.oauth2.service_account import Credentials
 from datetime import datetime
+
+
+# Local keywords cache file
+KEYWORDS_JSON_PATH = os.path.join(os.path.dirname(__file__), "keywords.json")
 
 
 SCOPES = [
@@ -20,6 +26,7 @@ SHEET_TRENDS = "trends_data"
 SHEET_PRICES = "price_data"
 SHEET_PINTEREST = "pinterest_data"
 SHEET_ERRORS = "error_log"
+SHEET_KEYWORDS = "keywords"
 
 
 def get_gspread_client():
@@ -159,3 +166,90 @@ def get_price_data():
 def get_pinterest_data():
     """Get Pinterest trends data."""
     return read_sheet_data(SHEET_PINTEREST)
+
+
+def get_keywords():
+    """
+    Get keywords from the keywords sheet.
+
+    Returns a dict with keys: 'textures', 'colors', 'styles', 'brands'
+    Column A = Textures, B = Colors, C = Styles & Trends, D = Brands
+    """
+    try:
+        spreadsheet = get_spreadsheet()
+        worksheet = spreadsheet.worksheet(SHEET_KEYWORDS)
+
+        # Get all values from each column (skip header row)
+        all_values = worksheet.get_all_values()
+
+        if len(all_values) <= 1:
+            return {'textures': [], 'colors': [], 'styles': [], 'brands': []}
+
+        # Skip header row, extract each column
+        data_rows = all_values[1:]
+
+        textures = [row[0].strip() for row in data_rows if len(row) > 0 and row[0].strip()]
+        colors = [row[1].strip() for row in data_rows if len(row) > 1 and row[1].strip()]
+        styles = [row[2].strip() for row in data_rows if len(row) > 2 and row[2].strip()]
+        brands = [row[3].strip() for row in data_rows if len(row) > 3 and row[3].strip()]
+
+        return {
+            'textures': textures,
+            'colors': colors,
+            'styles': styles,
+            'brands': brands
+        }
+    except gspread.WorksheetNotFound:
+        log_error(f"Keywords sheet '{SHEET_KEYWORDS}' not found")
+        return {'textures': [], 'colors': [], 'styles': [], 'brands': []}
+    except Exception as e:
+        log_error(f"Error reading keywords: {str(e)}")
+        return {'textures': [], 'colors': [], 'styles': [], 'brands': []}
+
+
+def sync_keywords_to_json():
+    """
+    Fetch keywords from Google Sheets and save to local JSON file.
+    Run this to update the local cache before running the scraper offline.
+    """
+    keywords = get_keywords()
+
+    if not any(keywords.values()):
+        print("Warning: No keywords found in Google Sheets")
+        return False
+
+    keywords['synced_at'] = datetime.now().isoformat()
+
+    with open(KEYWORDS_JSON_PATH, 'w') as f:
+        json.dump(keywords, f, indent=2)
+
+    print(f"Keywords synced to {KEYWORDS_JSON_PATH}")
+    print(f"  - Textures: {len(keywords['textures'])}")
+    print(f"  - Colors: {len(keywords['colors'])}")
+    print(f"  - Styles: {len(keywords['styles'])}")
+    print(f"  - Brands: {len(keywords['brands'])}")
+
+    return True
+
+
+def load_keywords_from_json():
+    """
+    Load keywords from local JSON file.
+    Returns None if file doesn't exist.
+    """
+    if not os.path.exists(KEYWORDS_JSON_PATH):
+        return None
+
+    try:
+        with open(KEYWORDS_JSON_PATH, 'r') as f:
+            keywords = json.load(f)
+        return keywords
+    except Exception as e:
+        print(f"Error loading keywords from JSON: {e}")
+        return None
+
+
+if __name__ == "__main__":
+    # When run directly, sync keywords from Google Sheets to local JSON
+    print("Syncing keywords from Google Sheets...")
+    sync_keywords_to_json()
