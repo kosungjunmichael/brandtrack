@@ -1,10 +1,8 @@
 credentials.json
-secrets.toml
-claude.md
 .streamlit/
-.git/
 __pycache__/
 *.pyc
 .env
 keywords.json
 venv/
+docs/
