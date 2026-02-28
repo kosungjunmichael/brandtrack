@@ -36,14 +36,11 @@ def load_sheet_data(sheet_name):
 
 @st.cache_data(ttl=3600)
 def load_keywords():
-    """Load keywords from local JSON cache, falling back to Google Sheets."""
-    kw = gs.load_keywords_from_json()
-    if not kw:
-        try:
-            kw = gs.get_keywords()
-        except Exception:
-            kw = {}
-    return kw
+    """Load keywords directly from Google Sheets."""
+    try:
+        return gs.get_keywords()
+    except Exception:
+        return {}
 
 
 def generate_sample_data(total_days=180):
