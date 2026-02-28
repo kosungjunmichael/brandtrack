@@ -35,56 +35,37 @@ def load_sheet_data(sheet_name):
 
 
 def generate_sample_data(total_days=180):
-    """Generate sample time-series data for all categories."""
+    """Generate sample time-series data using all keywords from keywords.json."""
     np.random.seed(42)
     dates = pd.date_range(end=datetime.now(), periods=total_days, freq='D')
 
-    # Brand trends
-    brands = {
-        'Bottega Veneta': 45, 'Gucci': 65, 'Prada': 55,
-        'Balenciaga': 50, 'Chanel': 75, 'Louis Vuitton': 70,
-    }
-    brand_data = []
-    for date in dates:
-        for brand, base in brands.items():
-            trend = (date - dates[0]).days * 0.12 if brand == 'Bottega Veneta' else 0
-            value = max(0, min(100, base + trend + np.random.normal(0, 5)))
-            brand_data.append({'date': date, 'keyword': brand, 'interest': value})
+    kw = gs.load_keywords_from_json() or {}
+    brands         = kw.get('brands',         ['Gucci bag', 'Prada bag', 'Dior bag'])
+    vintage_brands = kw.get('vintage_brands', ['Vintage Gucci bag', 'Vintage Prada bag'])
+    colors         = kw.get('colors',         ['Black bag', 'Green bag'])
+    textures       = kw.get('textures',       ['Woven bag', 'Suede bag'])
+    styles         = kw.get('styles',         ['Crossbody bag', 'Tote bag'])
 
-    # Vintage brand trends
-    vintage_brands = {
-        'Vintage LV': 60, 'Vintage Gucci': 55, 'Vintage Dior': 50,
-        'Vintage YSL': 45, 'Vintage Chloé': 40,
-        'Vintage Balenciaga': 35, 'Vintage Burberry': 30,
-    }
-    vintage_data = []
-    for date in dates:
-        for brand, base in vintage_brands.items():
-            trend = (date - dates[0]).days * 0.09 if brand == 'Vintage LV' else 0
-            value = max(0, min(100, base + trend + np.random.normal(0, 4)))
-            vintage_data.append({'date': date, 'keyword': brand, 'interest': value})
+    def make_timeseries(keywords):
+        bases = np.random.randint(30, 80, size=len(keywords))
+        rows = []
+        for date in dates:
+            day_offset = (date - dates[0]).days
+            for i, name in enumerate(keywords):
+                trend = day_offset * 0.1 if i == 0 else 0
+                value = max(0, min(100, bases[i] + trend + np.random.normal(0, 5)))
+                rows.append({'date': date, 'keyword': name, 'interest': value})
+        return pd.DataFrame(rows)
 
-    colors = {
-        'Black': 65000, 'Green': 58000, 'Brown/Tan': 48000,
-        'Beige': 42000, 'White/Cream': 38000, 'Burgundy': 28000,
-        'Blue': 22000, 'Pink': 18000,
-    }
-    textures = {
-        'Woven': 72000, 'Smooth Leather': 65000, 'Quilted': 58000,
-        'Grained Leather': 52000, 'Canvas': 45000, 'Python/Exotic': 38000,
-        'Suede': 32000, 'Linen': 25000,
-    }
-    styles = {
-        'Crossbody': 34, 'Tote': 24, 'Shoulder Bag': 18,
-        'Clutch': 10, 'Bucket bag': 9, 'East-west bag': 5,
-    }
+    raw_shares = np.random.randint(5, 30, size=len(styles)).astype(float)
+    style_shares = dict(zip(styles, (raw_shares / raw_shares.sum() * 100).round(1)))
 
     return {
-        'brand_trends': pd.DataFrame(brand_data),
-        'vintage_trends': pd.DataFrame(vintage_data),
-        'colors': colors,
-        'textures': textures,
-        'styles': styles,
+        'brand_trends':   make_timeseries(brands),
+        'vintage_trends': make_timeseries(vintage_brands),
+        'colors':   dict(zip(colors,   np.random.randint(15000, 70000, size=len(colors)))),
+        'textures': dict(zip(textures, np.random.randint(20000, 75000, size=len(textures)))),
+        'styles':   style_shares,
     }
 
 
@@ -129,20 +110,6 @@ CHART_LAYOUT = dict(
     hovermode='x unified',
 )
 
-BRAND_COLORS = {
-    'Bottega Veneta': '#10b981',
-    'Gucci':          '#ef4444',
-    'Prada':          '#3b82f6',
-    'Balenciaga':     '#f97316',
-    'Chanel':         '#a78bfa',
-    'Louis Vuitton':  '#f59e0b',
-}
-
-COLOR_MAP = {
-    'Black': '#555555', 'Green': '#228b22', 'Brown/Tan': '#8b4513',
-    'Beige': '#c8a97e', 'White/Cream': '#c8c8b4', 'Burgundy': '#800020',
-    'Blue': '#4169e1', 'Pink': '#ff69b4',
-}
 
 
 def main():
@@ -204,12 +171,12 @@ def main():
 
     fig_brands = px.line(
         brand_df, x='date', y='interest', color='keyword',
-        color_discrete_map=BRAND_COLORS,
+        color_discrete_sequence=px.colors.qualitative.Light24,
         template='plotly_dark',
     )
     fig_brands.update_layout(
-        height=280,
-        legend=dict(orientation='h', yanchor='bottom', y=-0.35, xanchor='center', x=0.5),
+        height=350,
+        legend=dict(orientation='h', yanchor='bottom', y=-0.5, xanchor='center', x=0.5),
         **CHART_LAYOUT,
     )
     st.plotly_chart(fig_brands, use_container_width=True)
@@ -225,11 +192,12 @@ def main():
 
     fig_vintage = px.line(
         vintage_df, x='date', y='interest', color='keyword',
+        color_discrete_sequence=px.colors.qualitative.Light24,
         template='plotly_dark',
     )
     fig_vintage.update_layout(
-        height=280,
-        legend=dict(orientation='h', yanchor='bottom', y=-0.35, xanchor='center', x=0.5),
+        height=350,
+        legend=dict(orientation='h', yanchor='bottom', y=-0.5, xanchor='center', x=0.5),
         **CHART_LAYOUT,
     )
     st.plotly_chart(fig_vintage, use_container_width=True)
@@ -249,10 +217,10 @@ def main():
         })
         fig_colors = px.bar(
             color_df, y='Color', x='Searches', orientation='h',
-            color='Color', color_discrete_map=COLOR_MAP,
+            color_discrete_sequence=['#4da6ff'],
             template='plotly_dark',
         )
-        fig_colors.update_layout(height=300, showlegend=False, **CHART_LAYOUT)
+        fig_colors.update_layout(height=max(300, len(sample['colors']) * 35), showlegend=False, **CHART_LAYOUT)
         st.plotly_chart(fig_colors, use_container_width=True)
 
     with col_texture:
@@ -268,7 +236,7 @@ def main():
             color_discrete_sequence=['#8b4513'],
             template='plotly_dark',
         )
-        fig_textures.update_layout(height=300, showlegend=False, **CHART_LAYOUT)
+        fig_textures.update_layout(height=max(300, len(sample['textures']) * 35), showlegend=False, **CHART_LAYOUT)
         st.plotly_chart(fig_textures, use_container_width=True)
 
     with col_style:
@@ -289,7 +257,7 @@ def main():
             legend=dict(orientation='v', yanchor='middle', y=0.5, xanchor='left', x=1.0),
             **{k: v for k, v in CHART_LAYOUT.items() if k not in ('xaxis_title', 'yaxis_title', 'hovermode')},
         )
-        fig_styles.update_traces(textposition='inside', textinfo='percent+label')
+        fig_styles.update_traces(textposition='inside', textinfo='percent')
         st.plotly_chart(fig_styles, use_container_width=True)
 
 
