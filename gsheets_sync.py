@@ -6,14 +6,9 @@ Handles reading and writing data to Google Sheets using service account credenti
 import streamlit as st
 import pandas as pd
 import gspread
-import json
 import os
 from google.oauth2.service_account import Credentials
 from datetime import datetime
-
-
-# Local keywords cache file
-KEYWORDS_JSON_PATH = os.path.join(os.path.dirname(__file__), "keywords.json")
 
 
 SCOPES = [
@@ -274,50 +269,14 @@ def get_keywords():
         return {'textures': [], 'colors': [], 'styles': [], 'brands': []}
 
 
-def sync_keywords_to_json():
-    """
-    Fetch keywords from Google Sheets and save to local JSON file.
-    Run this to update the local cache before running the scraper offline.
-    """
-    keywords = get_keywords()
-
-    if not any(keywords.values()):
-        print("Warning: No keywords found in Google Sheets")
-        return False
-
-    keywords['synced_at'] = datetime.now().isoformat()
-
-    with open(KEYWORDS_JSON_PATH, 'w') as f:
-        json.dump(keywords, f, indent=2)
-
-    print(f"Keywords synced to {KEYWORDS_JSON_PATH}")
-    print(f"  - Textures: {len(keywords['textures'])}")
-    print(f"  - Colors: {len(keywords['colors'])}")
-    print(f"  - Styles: {len(keywords['styles'])}")
-    print(f"  - Brands: {len(keywords['brands'])}")
-    print(f"  - Vintage brands: {len(keywords['vintage_brands'])}")
-
-    return True
-
-
-def load_keywords_from_json():
-    """
-    Load keywords from local JSON file.
-    Returns None if file doesn't exist.
-    """
-    if not os.path.exists(KEYWORDS_JSON_PATH):
-        return None
-
-    try:
-        with open(KEYWORDS_JSON_PATH, 'r') as f:
-            keywords = json.load(f)
-        return keywords
-    except Exception as e:
-        print(f"Error loading keywords from JSON: {e}")
-        return None
-
-
 if __name__ == "__main__":
-    # When run directly, sync keywords from Google Sheets to local JSON
-    print("Syncing keywords from Google Sheets...")
-    sync_keywords_to_json()
+    print("Fetching keywords from Google Sheets...")
+    keywords = get_keywords()
+    if any(keywords.values()):
+        print(f"  - Textures: {len(keywords['textures'])}")
+        print(f"  - Colors: {len(keywords['colors'])}")
+        print(f"  - Styles: {len(keywords['styles'])}")
+        print(f"  - Brands: {len(keywords['brands'])}")
+        print(f"  - Vintage brands: {len(keywords['vintage_brands'])}")
+    else:
+        print("Warning: No keywords found in Google Sheets")

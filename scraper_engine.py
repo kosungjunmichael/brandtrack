@@ -27,37 +27,29 @@ DEFAULT_TEXTURES = ["leather bag", "quilted bag", "canvas bag", "suede bag", "pa
 
 
 def load_keywords():
-    """
-    Load keywords from local JSON file (keywords.json).
-    Falls back to defaults if file doesn't exist.
-
-    To update keywords.json, run: python gsheets_sync.py
-    """
+    """Load keywords directly from Google Sheets, falling back to defaults."""
     if gs:
         try:
-            keywords = gs.load_keywords_from_json()
-            if keywords:
-                synced_at = keywords.get('synced_at', 'unknown')
-                print(f"  Loaded keywords from local cache (synced: {synced_at})")
+            keywords = gs.get_keywords()
+            if any(keywords.values()):
+                print("  Loaded keywords from Google Sheets")
                 return {
-                    'brands': keywords['brands'] if keywords['brands'] else DEFAULT_BRANDS,
+                    'brands':         keywords.get('brands')         or DEFAULT_BRANDS,
                     'vintage_brands': keywords.get('vintage_brands') or DEFAULT_VINTAGE_BRANDS,
-                    'styles': keywords['styles'] if keywords['styles'] else DEFAULT_STYLES,
-                    'colors': keywords['colors'] if keywords['colors'] else DEFAULT_COLORS,
-                    'textures': keywords['textures'] if keywords['textures'] else DEFAULT_TEXTURES,
+                    'styles':         keywords.get('styles')         or DEFAULT_STYLES,
+                    'colors':         keywords.get('colors')         or DEFAULT_COLORS,
+                    'textures':       keywords.get('textures')       or DEFAULT_TEXTURES,
                 }
-            else:
-                print("  No local keywords.json found, using defaults")
-                print("  Tip: Run 'python gsheets_sync.py' to sync keywords from Google Sheets")
         except Exception as e:
-            print(f"Warning: Could not load keywords: {e}")
+            print(f"Warning: Could not load keywords from Google Sheets: {e}")
 
+    print("  Using default keywords")
     return {
-        'brands': DEFAULT_BRANDS,
+        'brands':         DEFAULT_BRANDS,
         'vintage_brands': DEFAULT_VINTAGE_BRANDS,
-        'styles': DEFAULT_STYLES,
-        'colors': DEFAULT_COLORS,
-        'textures': DEFAULT_TEXTURES,
+        'styles':         DEFAULT_STYLES,
+        'colors':         DEFAULT_COLORS,
+        'textures':       DEFAULT_TEXTURES,
     }
 
 
