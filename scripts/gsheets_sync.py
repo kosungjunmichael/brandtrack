@@ -29,7 +29,7 @@ SHEET_ERRORS = "error_log"
 SHEET_KEYWORDS = "keywords"
 
 
-CREDENTIALS_JSON_PATH = os.path.join(os.path.dirname(__file__), "credentials.json")
+CREDENTIALS_JSON_PATH = os.path.join(os.path.dirname(__file__), "..", "credentials.json")
 SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1o75hpU7tcnAFqj1X7uAFOM5U2_mOxA55SN1tWhXD29s"
 
 

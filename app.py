@@ -10,6 +10,8 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import numpy as np
 
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "scripts"))
 import gsheets_sync as gs
 
 st.set_page_config(

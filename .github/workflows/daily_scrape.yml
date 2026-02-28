@@ -59,7 +59,7 @@ jobs:
           EOF
 
       - name: Run scraper
-        run: python scraper_engine.py
+        run: python scripts/scraper_engine.py
 
       - name: Log completion
         run: echo "Scraping completed at $(date -u)"

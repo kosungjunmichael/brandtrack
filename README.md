@@ -23,8 +23,9 @@ Real-time market intelligence for luxury handbag searches. Track search interest
 ```
 brandtrack/
 ├── app.py                 # Main Streamlit dashboard
-├── scraper_engine.py      # Data collection (PyTrends, eBay, Pinterest)
-├── gsheets_sync.py        # Google Sheets read/write module
+├── scripts/
+│   ├── scraper_engine.py  # Data collection (PyTrends, eBay, Pinterest)
+│   └── gsheets_sync.py    # Google Sheets read/write module
 ├── requirements.txt       # Python dependencies
 ├── .streamlit/
 │   └── secrets.toml       # Google Sheets credentials (not in repo)
@@ -70,7 +71,7 @@ streamlit run app.py
 ### 4. Run Scrapers Manually
 
 ```bash
-python scraper_engine.py
+python scripts/scraper_engine.py
 ```
 
 ## Deployment
