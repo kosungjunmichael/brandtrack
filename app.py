@@ -8,7 +8,6 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
-import numpy as np
 
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "scripts"))
@@ -36,6 +35,14 @@ def load_sheet_data(sheet_name):
         return pd.DataFrame()
 
 
+@st.cache_data(ttl=300)
+def load_trends_data(sheet_name):
+    df = gs.read_sheet_data(sheet_name)
+    if not df.empty and 'date' in df.columns:
+        df['date'] = pd.to_datetime(df['date'])
+    return df
+
+
 @st.cache_data(ttl=3600)
 def load_keywords():
     """Load keywords directly from Google Sheets."""
@@ -43,41 +50,6 @@ def load_keywords():
         return gs.get_keywords()
     except Exception:
         return {}
-
-
-def generate_sample_data(total_days=180):
-    """Generate sample time-series data using all keywords from keywords.json."""
-    np.random.seed(42)
-    dates = pd.date_range(end=datetime.now(), periods=total_days, freq='D')
-
-    kw = load_keywords()
-    brands         = kw.get('brands',         ['Gucci bag', 'Prada bag', 'Dior bag'])
-    vintage_brands = kw.get('vintage_brands', ['Vintage Gucci bag', 'Vintage Prada bag'])
-    colors         = kw.get('colors',         ['Black bag', 'Green bag'])
-    textures       = kw.get('textures',       ['Woven bag', 'Suede bag'])
-    styles         = kw.get('styles',         ['Crossbody bag', 'Tote bag'])
-
-    def make_timeseries(keywords):
-        bases = np.random.randint(30, 80, size=len(keywords))
-        rows = []
-        for date in dates:
-            day_offset = (date - dates[0]).days
-            for i, name in enumerate(keywords):
-                trend = day_offset * 0.1 if i == 0 else 0
-                value = max(0, min(100, bases[i] + trend + np.random.normal(0, 5)))
-                rows.append({'date': date, 'keyword': name, 'interest': value})
-        return pd.DataFrame(rows)
-
-    raw_shares = np.random.randint(5, 30, size=len(styles)).astype(float)
-    style_shares = dict(zip(styles, (raw_shares / raw_shares.sum() * 100).round(1)))
-
-    return {
-        'brand_trends':   make_timeseries(brands),
-        'vintage_trends': make_timeseries(vintage_brands),
-        'colors':   dict(zip(colors,   np.random.randint(15000, 70000, size=len(colors)))),
-        'textures': dict(zip(textures, np.random.randint(20000, 75000, size=len(textures)))),
-        'styles':   style_shares,
-    }
 
 
 def compute_top_and_delta(df, period_days):
@@ -150,22 +122,27 @@ def main():
     st.divider()
 
     days = int(time_period.split()[1])
-    sample = generate_sample_data()
     cutoff = datetime.now() - timedelta(days=days)
 
+    brand_df   = load_trends_data(gs.SHEET_BRAND_TRENDS)
+    vintage_df = load_trends_data(gs.SHEET_VINTAGE_BRAND_TRENDS)
+    color_df   = load_trends_data(gs.SHEET_COLOR_TRENDS)
+    style_df   = load_trends_data(gs.SHEET_STYLE_TRENDS)
+    texture_df = load_trends_data(gs.SHEET_TEXTURE_TRENDS)
+
     # ── KPI Cards ────────────────────────────────────────────────────────────
-    top_brand,   brand_delta   = compute_top_and_delta(sample['brand_trends'].copy(), days)
-    top_vintage, vintage_delta = compute_top_and_delta(sample['vintage_trends'].copy(), days)
-    top_color   = max(sample['colors'],   key=sample['colors'].get)
-    top_texture = max(sample['textures'], key=sample['textures'].get)
-    top_style   = max(sample['styles'],   key=sample['styles'].get)
+    top_brand,   brand_delta   = compute_top_and_delta(brand_df.copy(),   days)
+    top_vintage, vintage_delta = compute_top_and_delta(vintage_df.copy(), days)
+    top_color,   color_delta   = compute_top_and_delta(color_df.copy(),   days)
+    top_texture, texture_delta = compute_top_and_delta(texture_df.copy(), days)
+    top_style,   style_delta   = compute_top_and_delta(style_df.copy(),   days)
 
     kpis = [
         ('Top Brand',         top_brand,   brand_delta),
         ('Top Vintage Brand', top_vintage, vintage_delta),
-        ('Top Color',         top_color,   67.0),
-        ('Top Texture',       top_texture, 66.96),
-        ('Top Style',         top_style,   45.0),
+        ('Top Color',         top_color,   color_delta),
+        ('Top Texture',       top_texture, texture_delta),
+        ('Top Style',         top_style,   style_delta),
     ]
     for col, (label, value, delta) in zip(st.columns(5), kpis):
         with col:
@@ -177,20 +154,21 @@ def main():
     st.markdown('<p class="section-title">Brand Power Shift</p>', unsafe_allow_html=True)
     st.markdown('<p class="section-subtitle">Search volume trends by luxury brand (indexed)</p>', unsafe_allow_html=True)
 
-    brand_df = sample['brand_trends']
-    brand_df = brand_df[brand_df['date'] >= cutoff]
-
-    fig_brands = px.line(
-        brand_df, x='date', y='interest', color='keyword',
-        color_discrete_sequence=px.colors.qualitative.Light24,
-        template='plotly_dark',
-    )
-    fig_brands.update_layout(
-        height=350,
-        legend=dict(orientation='h', yanchor='bottom', y=-0.5, xanchor='center', x=0.5),
-        **CHART_LAYOUT,
-    )
-    st.plotly_chart(fig_brands, use_container_width=True)
+    brand_filtered = brand_df[brand_df['date'] >= cutoff] if not brand_df.empty else brand_df
+    if brand_filtered.empty:
+        st.info("No brand trend data available yet. Run the scraper to populate this chart.")
+    else:
+        fig_brands = px.line(
+            brand_filtered, x='date', y='interest', color='keyword',
+            color_discrete_sequence=px.colors.qualitative.Light24,
+            template='plotly_dark',
+        )
+        fig_brands.update_layout(
+            height=350,
+            legend=dict(orientation='h', yanchor='bottom', y=-0.5, xanchor='center', x=0.5),
+            **CHART_LAYOUT,
+        )
+        st.plotly_chart(fig_brands, width='stretch')
 
     st.markdown('<br>', unsafe_allow_html=True)
 
@@ -198,20 +176,21 @@ def main():
     st.markdown('<p class="section-title">Vintage Brand Trends</p>', unsafe_allow_html=True)
     st.markdown('<p class="section-subtitle">Actual yearly search interest over time</p>', unsafe_allow_html=True)
 
-    vintage_df = sample['vintage_trends']
-    vintage_df = vintage_df[vintage_df['date'] >= cutoff]
-
-    fig_vintage = px.line(
-        vintage_df, x='date', y='interest', color='keyword',
-        color_discrete_sequence=px.colors.qualitative.Light24,
-        template='plotly_dark',
-    )
-    fig_vintage.update_layout(
-        height=350,
-        legend=dict(orientation='h', yanchor='bottom', y=-0.5, xanchor='center', x=0.5),
-        **CHART_LAYOUT,
-    )
-    st.plotly_chart(fig_vintage, use_container_width=True)
+    vintage_filtered = vintage_df[vintage_df['date'] >= cutoff] if not vintage_df.empty else vintage_df
+    if vintage_filtered.empty:
+        st.info("No vintage brand trend data available yet. Run the scraper to populate this chart.")
+    else:
+        fig_vintage = px.line(
+            vintage_filtered, x='date', y='interest', color='keyword',
+            color_discrete_sequence=px.colors.qualitative.Light24,
+            template='plotly_dark',
+        )
+        fig_vintage.update_layout(
+            height=350,
+            legend=dict(orientation='h', yanchor='bottom', y=-0.5, xanchor='center', x=0.5),
+            **CHART_LAYOUT,
+        )
+        st.plotly_chart(fig_vintage, width='stretch')
 
     st.markdown('<br>', unsafe_allow_html=True)
 
@@ -222,54 +201,61 @@ def main():
         st.markdown('<p class="section-title">Color Trends</p>', unsafe_allow_html=True)
         st.markdown('<p class="section-subtitle">Top searched colors this month</p>', unsafe_allow_html=True)
 
-        color_df = pd.DataFrame({
-            'Color': list(sample['colors'].keys()),
-            'Searches': list(sample['colors'].values()),
-        })
-        fig_colors = px.bar(
-            color_df, y='Color', x='Searches', orientation='h',
-            color_discrete_sequence=['#4da6ff'],
-            template='plotly_dark',
-        )
-        fig_colors.update_layout(height=max(300, len(sample['colors']) * 35), showlegend=False, **CHART_LAYOUT)
-        st.plotly_chart(fig_colors, use_container_width=True)
+        color_filtered = color_df[color_df['date'] >= cutoff] if not color_df.empty else color_df
+        if color_filtered.empty:
+            st.info("No color trend data available yet. Run the scraper to populate this chart.")
+        else:
+            color_agg = color_filtered.groupby('keyword')['interest'].mean().sort_values(ascending=True)
+            color_plot_df = pd.DataFrame({'Color': color_agg.index, 'Interest': color_agg.values})
+            fig_colors = px.bar(
+                color_plot_df, y='Color', x='Interest', orientation='h',
+                color_discrete_sequence=['#4da6ff'],
+                template='plotly_dark',
+            )
+            fig_colors.update_layout(height=max(300, len(color_agg) * 35), showlegend=False, **CHART_LAYOUT)
+            st.plotly_chart(fig_colors, width='stretch')
 
     with col_texture:
         st.markdown('<p class="section-title">Texture & Material Trends</p>', unsafe_allow_html=True)
         st.markdown('<p class="section-subtitle">Popular textures and materials</p>', unsafe_allow_html=True)
 
-        texture_df = pd.DataFrame({
-            'Texture': list(sample['textures'].keys()),
-            'Searches': list(sample['textures'].values()),
-        })
-        fig_textures = px.bar(
-            texture_df, y='Texture', x='Searches', orientation='h',
-            color_discrete_sequence=['#8b4513'],
-            template='plotly_dark',
-        )
-        fig_textures.update_layout(height=max(300, len(sample['textures']) * 35), showlegend=False, **CHART_LAYOUT)
-        st.plotly_chart(fig_textures, use_container_width=True)
+        texture_filtered = texture_df[texture_df['date'] >= cutoff] if not texture_df.empty else texture_df
+        if texture_filtered.empty:
+            st.info("No texture trend data available yet. Run the scraper to populate this chart.")
+        else:
+            texture_agg = texture_filtered.groupby('keyword')['interest'].mean().sort_values(ascending=True)
+            texture_plot_df = pd.DataFrame({'Texture': texture_agg.index, 'Interest': texture_agg.values})
+            fig_textures = px.bar(
+                texture_plot_df, y='Texture', x='Interest', orientation='h',
+                color_discrete_sequence=['#8b4513'],
+                template='plotly_dark',
+            )
+            fig_textures.update_layout(height=max(300, len(texture_agg) * 35), showlegend=False, **CHART_LAYOUT)
+            st.plotly_chart(fig_textures, width='stretch')
 
     with col_style:
         st.markdown('<p class="section-title">Style & Shape Distribution</p>', unsafe_allow_html=True)
         st.markdown('<p class="section-subtitle">Market share by bag style</p>', unsafe_allow_html=True)
 
-        style_df = pd.DataFrame({
-            'Style': list(sample['styles'].keys()),
-            'Share': list(sample['styles'].values()),
-        })
-        fig_styles = px.pie(
-            style_df, values='Share', names='Style',
-            color_discrete_sequence=px.colors.qualitative.Set2,
-            template='plotly_dark',
-        )
-        fig_styles.update_layout(
-            height=300,
-            legend=dict(orientation='v', yanchor='middle', y=0.5, xanchor='left', x=1.0),
-            **{k: v for k, v in CHART_LAYOUT.items() if k not in ('xaxis_title', 'yaxis_title', 'hovermode')},
-        )
-        fig_styles.update_traces(textposition='inside', textinfo='percent')
-        st.plotly_chart(fig_styles, use_container_width=True)
+        style_filtered = style_df[style_df['date'] >= cutoff] if not style_df.empty else style_df
+        if style_filtered.empty:
+            st.info("No style trend data available yet. Run the scraper to populate this chart.")
+        else:
+            style_agg = style_filtered.groupby('keyword')['interest'].mean()
+            style_shares = (style_agg / style_agg.sum() * 100).round(1)
+            style_plot_df = pd.DataFrame({'Style': style_shares.index, 'Share': style_shares.values})
+            fig_styles = px.pie(
+                style_plot_df, values='Share', names='Style',
+                color_discrete_sequence=px.colors.qualitative.Set2,
+                template='plotly_dark',
+            )
+            fig_styles.update_layout(
+                height=300,
+                legend=dict(orientation='v', yanchor='middle', y=0.5, xanchor='left', x=1.0),
+                **{k: v for k, v in CHART_LAYOUT.items() if k not in ('xaxis_title', 'yaxis_title', 'hovermode')},
+            )
+            fig_styles.update_traces(textposition='inside', textinfo='percent')
+            st.plotly_chart(fig_styles, width='stretch')
 
 
 if __name__ == '__main__':
