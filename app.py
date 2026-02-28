@@ -34,12 +34,24 @@ def load_sheet_data(sheet_name):
         return pd.DataFrame()
 
 
+@st.cache_data(ttl=3600)
+def load_keywords():
+    """Load keywords from local JSON cache, falling back to Google Sheets."""
+    kw = gs.load_keywords_from_json()
+    if not kw:
+        try:
+            kw = gs.get_keywords()
+        except Exception:
+            kw = {}
+    return kw
+
+
 def generate_sample_data(total_days=180):
     """Generate sample time-series data using all keywords from keywords.json."""
     np.random.seed(42)
     dates = pd.date_range(end=datetime.now(), periods=total_days, freq='D')
 
-    kw = gs.load_keywords_from_json() or {}
+    kw = load_keywords()
     brands         = kw.get('brands',         ['Gucci bag', 'Prada bag', 'Dior bag'])
     vintage_brands = kw.get('vintage_brands', ['Vintage Gucci bag', 'Vintage Prada bag'])
     colors         = kw.get('colors',         ['Black bag', 'Green bag'])
