@@ -20,6 +20,7 @@ except ImportError:
 
 # Default fallback keywords (used if Google Sheets is unavailable)
 DEFAULT_BRANDS = ["Hermès bag", "Chanel bag", "Louis Vuitton bag", "Gucci bag", "Prada bag", "Bottega Veneta bag"]
+DEFAULT_VINTAGE_BRANDS = ["Vintage Gucci", "Vintage Prada", "Vintage Chanel", "Vintage Louis Vuitton", "Vintage Fendi"]
 DEFAULT_STYLES = ["shoulder bag", "tote bag", "crossbody bag", "clutch bag", "bucket bag", "satchel bag"]
 DEFAULT_COLORS = ["black bag", "brown bag", "beige bag", "white bag", "green bag", "red bag", "blue bag", "pink bag"]
 DEFAULT_TEXTURES = ["leather bag", "quilted bag", "canvas bag", "suede bag", "patent leather bag", "woven bag"]
@@ -40,6 +41,7 @@ def load_keywords():
                 print(f"  Loaded keywords from local cache (synced: {synced_at})")
                 return {
                     'brands': keywords['brands'] if keywords['brands'] else DEFAULT_BRANDS,
+                    'vintage_brands': keywords.get('vintage_brands') or DEFAULT_VINTAGE_BRANDS,
                     'styles': keywords['styles'] if keywords['styles'] else DEFAULT_STYLES,
                     'colors': keywords['colors'] if keywords['colors'] else DEFAULT_COLORS,
                     'textures': keywords['textures'] if keywords['textures'] else DEFAULT_TEXTURES,
@@ -52,6 +54,7 @@ def load_keywords():
 
     return {
         'brands': DEFAULT_BRANDS,
+        'vintage_brands': DEFAULT_VINTAGE_BRANDS,
         'styles': DEFAULT_STYLES,
         'colors': DEFAULT_COLORS,
         'textures': DEFAULT_TEXTURES,
@@ -151,6 +154,26 @@ class GoogleTrendsScraper:
 
         for batch in batch_keywords(styles, 5):
             print(f"Fetching style trends for: {batch}")
+            data = self.fetch_interest_over_time(batch)
+            if not data.empty:
+                all_data.append(data)
+            polite_delay()
+
+        if all_data:
+            return pd.concat(all_data, axis=0).drop_duplicates()
+        return pd.DataFrame()
+
+    def fetch_vintage_brand_trends(self):
+        """Fetch trends for vintage brands."""
+        all_data = []
+        vintage_brands = self.keywords['vintage_brands']
+
+        if not vintage_brands:
+            print("  No vintage brand keywords found, skipping...")
+            return pd.DataFrame()
+
+        for batch in batch_keywords(vintage_brands, 5):
+            print(f"Fetching vintage brand trends for: {batch}")
             data = self.fetch_interest_over_time(batch)
             if not data.empty:
                 all_data.append(data)
@@ -362,6 +385,7 @@ def run_all_scrapers():
     print("\n[0/1] Loading keywords...")
     keywords = load_keywords()
     print(f"  - Brands: {len(keywords['brands'])} keywords")
+    print(f"  - Vintage brands: {len(keywords['vintage_brands'])} keywords")
     print(f"  - Colors: {len(keywords['colors'])} keywords")
     print(f"  - Styles: {len(keywords['styles'])} keywords")
     print(f"  - Textures: {len(keywords['textures'])} keywords")
@@ -374,6 +398,7 @@ def run_all_scrapers():
     if gs:
         print("  Clearing old trends data...")
         gs.clear_sheet(gs.SHEET_BRAND_TRENDS)
+        gs.clear_sheet(gs.SHEET_VINTAGE_BRAND_TRENDS)
         gs.clear_sheet(gs.SHEET_COLOR_TRENDS)
         gs.clear_sheet(gs.SHEET_STYLE_TRENDS)
         gs.clear_sheet(gs.SHEET_TEXTURE_TRENDS)
@@ -383,6 +408,12 @@ def run_all_scrapers():
         brand_trends['scraped_at'] = datetime.now().isoformat()
         gs.append_dataframe(gs.SHEET_BRAND_TRENDS, brand_trends)
         print(f"  - Saved {len(brand_trends)} brand trend records")
+
+    vintage_brand_trends = trends_scraper.fetch_vintage_brand_trends()
+    if not vintage_brand_trends.empty and gs:
+        vintage_brand_trends['scraped_at'] = datetime.now().isoformat()
+        gs.append_dataframe(gs.SHEET_VINTAGE_BRAND_TRENDS, vintage_brand_trends)
+        print(f"  - Saved {len(vintage_brand_trends)} vintage brand trend records")
 
     color_trends = trends_scraper.fetch_color_trends()
     if not color_trends.empty and gs:

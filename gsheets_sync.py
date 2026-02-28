@@ -24,6 +24,7 @@ SCOPES = [
 # Sheet names
 SHEET_TRENDS = "trends_data"  # Legacy, kept for compatibility
 SHEET_BRAND_TRENDS = "brand_trends"
+SHEET_VINTAGE_BRAND_TRENDS = "vintage_brand_trends"
 SHEET_COLOR_TRENDS = "color_trends"
 SHEET_STYLE_TRENDS = "style_trends"
 SHEET_TEXTURE_TRENDS = "texture_trends"
