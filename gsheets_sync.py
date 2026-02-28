@@ -33,29 +33,53 @@ SHEET_ERRORS = "error_log"
 SHEET_KEYWORDS = "keywords"
 
 
-def get_gspread_client():
-    """Get authenticated gspread client using Streamlit secrets."""
-    creds_dict = {
-        "type": "service_account",
-        "project_id": st.secrets["connections"]["gsheets"]["project_id"],
-        "private_key_id": st.secrets["connections"]["gsheets"]["private_key_id"],
-        "private_key": st.secrets["connections"]["gsheets"]["private_key"],
-        "client_email": st.secrets["connections"]["gsheets"]["client_email"],
-        "client_id": st.secrets["connections"]["gsheets"]["client_id"],
-        "auth_uri": st.secrets["connections"]["gsheets"]["auth_uri"],
-        "token_uri": st.secrets["connections"]["gsheets"]["token_uri"],
-        "auth_provider_x509_cert_url": st.secrets["connections"]["gsheets"]["auth_provider_x509_cert_url"],
-        "client_x509_cert_url": st.secrets["connections"]["gsheets"]["client_x509_cert_url"],
-    }
+CREDENTIALS_JSON_PATH = os.path.join(os.path.dirname(__file__), "credentials.json")
+SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1o75hpU7tcnAFqj1X7uAFOM5U2_mOxA55SN1tWhXD29s"
 
-    credentials = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
+
+def _is_streamlit():
+    """Return True when running inside a Streamlit session."""
+    try:
+        # st.secrets raises an error outside of Streamlit context
+        _ = st.secrets["connections"]
+        return True
+    except Exception:
+        return False
+
+
+def get_gspread_client():
+    """Get authenticated gspread client.
+
+    Uses Streamlit secrets when running inside the app, otherwise falls back
+    to the local credentials.json service account file.
+    """
+    if _is_streamlit():
+        creds_dict = {
+            "type": "service_account",
+            "project_id": st.secrets["connections"]["gsheets"]["project_id"],
+            "private_key_id": st.secrets["connections"]["gsheets"]["private_key_id"],
+            "private_key": st.secrets["connections"]["gsheets"]["private_key"],
+            "client_email": st.secrets["connections"]["gsheets"]["client_email"],
+            "client_id": st.secrets["connections"]["gsheets"]["client_id"],
+            "auth_uri": st.secrets["connections"]["gsheets"]["auth_uri"],
+            "token_uri": st.secrets["connections"]["gsheets"]["token_uri"],
+            "auth_provider_x509_cert_url": st.secrets["connections"]["gsheets"]["auth_provider_x509_cert_url"],
+            "client_x509_cert_url": st.secrets["connections"]["gsheets"]["client_x509_cert_url"],
+        }
+        credentials = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
+    else:
+        credentials = Credentials.from_service_account_file(CREDENTIALS_JSON_PATH, scopes=SCOPES)
+
     return gspread.authorize(credentials)
 
 
 def get_spreadsheet():
     """Get the main spreadsheet object."""
     client = get_gspread_client()
-    spreadsheet_url = st.secrets["connections"]["gsheets"]["spreadsheet"]
+    if _is_streamlit():
+        spreadsheet_url = st.secrets["connections"]["gsheets"]["spreadsheet"]
+    else:
+        spreadsheet_url = SPREADSHEET_URL
     return client.open_by_url(spreadsheet_url)
 
 
@@ -232,12 +256,14 @@ def get_keywords():
         colors = [row[1].strip() for row in data_rows if len(row) > 1 and row[1].strip()]
         styles = [row[2].strip() for row in data_rows if len(row) > 2 and row[2].strip()]
         brands = [row[3].strip() for row in data_rows if len(row) > 3 and row[3].strip()]
+        vintage_brands = [row[4].strip() for row in data_rows if len(row) > 4 and row[4].strip()]
 
         return {
             'textures': textures,
             'colors': colors,
             'styles': styles,
-            'brands': brands
+            'brands': brands,
+            'vintage_brands': vintage_brands,
         }
     except gspread.WorksheetNotFound:
         log_error(f"Keywords sheet '{SHEET_KEYWORDS}' not found")
@@ -268,6 +294,7 @@ def sync_keywords_to_json():
     print(f"  - Colors: {len(keywords['colors'])}")
     print(f"  - Styles: {len(keywords['styles'])}")
     print(f"  - Brands: {len(keywords['brands'])}")
+    print(f"  - Vintage brands: {len(keywords['vintage_brands'])}")
 
     return True
 
