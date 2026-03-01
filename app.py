@@ -26,6 +26,12 @@ def load_css(file_path):
 
 load_css("styles.css")
 
+try:
+    _base_theme = st.get_option("theme.base") or "light"
+except Exception:
+    _base_theme = "light"
+PLOTLY_TEMPLATE = "plotly_dark" if _base_theme == "dark" else "plotly_white"
+
 
 @st.cache_data(ttl=300)
 def load_sheet_data(sheet_name):
@@ -161,7 +167,7 @@ def main():
         fig_brands = px.line(
             brand_filtered, x='date', y='interest', color='keyword',
             color_discrete_sequence=px.colors.qualitative.Light24,
-            template='plotly_dark',
+            template=PLOTLY_TEMPLATE,
         )
         fig_brands.update_layout(
             height=350,
@@ -183,7 +189,7 @@ def main():
         fig_vintage = px.line(
             vintage_filtered, x='date', y='interest', color='keyword',
             color_discrete_sequence=px.colors.qualitative.Light24,
-            template='plotly_dark',
+            template=PLOTLY_TEMPLATE,
         )
         fig_vintage.update_layout(
             height=350,
@@ -210,7 +216,7 @@ def main():
             fig_colors = px.bar(
                 color_plot_df, y='Color', x='Interest', orientation='h',
                 color_discrete_sequence=['#4da6ff'],
-                template='plotly_dark',
+                template=PLOTLY_TEMPLATE,
             )
             fig_colors.update_layout(height=max(300, len(color_agg) * 35), showlegend=False, **CHART_LAYOUT)
             st.plotly_chart(fig_colors, width='stretch')
@@ -228,7 +234,7 @@ def main():
             fig_textures = px.bar(
                 texture_plot_df, y='Texture', x='Interest', orientation='h',
                 color_discrete_sequence=['#8b4513'],
-                template='plotly_dark',
+                template=PLOTLY_TEMPLATE,
             )
             fig_textures.update_layout(height=max(300, len(texture_agg) * 35), showlegend=False, **CHART_LAYOUT)
             st.plotly_chart(fig_textures, width='stretch')
@@ -247,7 +253,7 @@ def main():
             fig_styles = px.pie(
                 style_plot_df, values='Share', names='Style',
                 color_discrete_sequence=px.colors.qualitative.Set2,
-                template='plotly_dark',
+                template=PLOTLY_TEMPLATE,
             )
             fig_styles.update_layout(
                 height=300,
