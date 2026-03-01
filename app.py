@@ -138,6 +138,8 @@ def kpi_card(label, value, delta, period_days):
 def main():
     PLOTLY_TEMPLATE = "plotly_dark" if st.session_state.night_mode else "plotly_white"
     font_color = '#fafafa' if st.session_state.night_mode else '#31333F'
+    hover_bg    = '#1e2130' if st.session_state.night_mode else '#ffffff'
+    hover_border = '#2a2f45' if st.session_state.night_mode else '#e0e0e0'
     CHART_LAYOUT = dict(
         margin=dict(l=0, r=0, t=10, b=0),
         paper_bgcolor='rgba(0,0,0,0)',
@@ -146,6 +148,11 @@ def main():
         yaxis_title='',
         hovermode='x unified',
         font=dict(color=font_color),
+        hoverlabel=dict(
+            bgcolor=hover_bg,
+            bordercolor=hover_border,
+            font=dict(color=font_color),
+        ),
     )
 
     # ── Header ──────────────────────────────────────────────────────────────
