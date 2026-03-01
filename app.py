@@ -26,11 +26,52 @@ def load_css(file_path):
 
 load_css("styles.css")
 
-try:
-    _base_theme = st.get_option("theme.base") or "light"
-except Exception:
-    _base_theme = "light"
-PLOTLY_TEMPLATE = "plotly_dark" if _base_theme == "dark" else "plotly_white"
+if 'night_mode' not in st.session_state:
+    st.session_state.night_mode = False
+
+
+def apply_night_mode():
+    if not st.session_state.night_mode:
+        return
+    st.markdown("""<style>
+    :root {
+        --background-color: #0e1117;
+        --secondary-background-color: #1e2130;
+        --text-color: #fafafa;
+    }
+    .stApp,
+    [data-testid="stAppViewContainer"],
+    [data-testid="stMain"] {
+        background-color: #0e1117 !important;
+    }
+    [data-testid="stHeader"] {
+        background-color: #0e1117 !important;
+        border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+    }
+    [data-testid="stBottom"] { background-color: #0e1117 !important; }
+    p, span, label, .stMarkdown, .stCaption { color: #fafafa !important; }
+    hr { border-color: rgba(255,255,255,0.1) !important; }
+    [data-testid="stSelectbox"] > div > div {
+        background-color: #1e2130 !important;
+        color: #fafafa !important;
+    }
+    .stButton > button {
+        background-color: #1e2130 !important;
+        color: #fafafa !important;
+        border-color: #2a2f45 !important;
+    }
+    .stButton > button:hover {
+        background-color: #2a2f45 !important;
+        border-color: #3a3f55 !important;
+    }
+    [data-testid="stInfo"] {
+        background-color: #1e2a3a !important;
+        color: #fafafa !important;
+    }
+    </style>""", unsafe_allow_html=True)
+
+
+apply_night_mode()
 
 
 @st.cache_data(ttl=300)
@@ -102,6 +143,8 @@ CHART_LAYOUT = dict(
 
 
 def main():
+    PLOTLY_TEMPLATE = "plotly_dark" if st.session_state.night_mode else "plotly_white"
+
     # ── Header ──────────────────────────────────────────────────────────────
     col_header, col_controls = st.columns([3, 2])
 
@@ -110,7 +153,7 @@ def main():
         st.markdown('<p class="sub-header">Real-time market intelligence for luxury handbag searches</p>', unsafe_allow_html=True)
 
     with col_controls:
-        c1, c2, c3 = st.columns([2, 2, 1])
+        c1, c2, c3, c4 = st.columns([2, 2, 1, 1])
         with c1:
             time_period = st.selectbox(
                 'Time Period',
@@ -123,6 +166,11 @@ def main():
         with c3:
             if st.button('⟳ Refresh', use_container_width=True):
                 st.cache_data.clear()
+                st.rerun()
+        with c4:
+            mode_label = '☀ Day' if st.session_state.night_mode else '🌙 Night'
+            if st.button(mode_label, use_container_width=True):
+                st.session_state.night_mode = not st.session_state.night_mode
                 st.rerun()
 
     st.divider()
