@@ -131,19 +131,21 @@ def kpi_card(label, value, delta, period_days):
     """
 
 
-CHART_LAYOUT = dict(
-    margin=dict(l=0, r=0, t=10, b=0),
-    paper_bgcolor='rgba(0,0,0,0)',
-    plot_bgcolor='rgba(0,0,0,0)',
-    xaxis_title='',
-    yaxis_title='',
-    hovermode='x unified',
-)
 
 
 
 def main():
     PLOTLY_TEMPLATE = "plotly_dark" if st.session_state.night_mode else "plotly_white"
+    font_color = '#fafafa' if st.session_state.night_mode else '#31333F'
+    CHART_LAYOUT = dict(
+        margin=dict(l=0, r=0, t=10, b=0),
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        xaxis_title='',
+        yaxis_title='',
+        hovermode='x unified',
+        font=dict(color=font_color),
+    )
 
     # ── Header ──────────────────────────────────────────────────────────────
     col_header, col_controls = st.columns([3, 2])
