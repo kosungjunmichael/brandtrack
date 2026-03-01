@@ -68,6 +68,7 @@ def apply_night_mode():
         background-color: #1e2a3a !important;
         color: #fafafa !important;
     }
+    .legendtext { fill: #fafafa !important; }
     </style>""", unsafe_allow_html=True)
 
 
